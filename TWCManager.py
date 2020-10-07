@@ -1313,7 +1313,7 @@ def check_green_energy():
            value = adc.read_adc_difference(0, gain=GAIN)
            peakVoltage = peakVoltage + math.sqrt(value**2)
 
-        if (peakVoltage/10>1000):
+        if (peakVoltage/10>500):
                 maxAmpsToDivideAmongSlaves = 6
 
         if(debugLevel >= 1):
