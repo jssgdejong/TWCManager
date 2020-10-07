@@ -119,8 +119,9 @@ import sysv_ipc
 import json
 from datetime import datetime
 import threading
+import Adafruit_ADS1x15
 
-
+adc = Adafruit_ADS1x15.ADS1115()
 ##########################
 #
 # Configuration parameters
@@ -150,7 +151,7 @@ rs485Adapter = '/dev/ttyUSB0'
 # 100 amp breaker * 0.8 = 80 here.
 # IF YOU'RE NOT SURE WHAT TO PUT HERE, ASK THE ELECTRICIAN WHO INSTALLED YOUR
 # CHARGER.
-wiringMaxAmpsAllTWCs = 40
+wiringMaxAmpsAllTWCs = 20
 
 # If all your chargers share a single circuit breaker, set wiringMaxAmpsPerTWC
 # to the same value as wiringMaxAmpsAllTWCs.
@@ -160,7 +161,7 @@ wiringMaxAmpsAllTWCs = 40
 # wiringMaxAmpsAllTWCs.
 # For example, if you have two TWCs each with a 50A breaker, set
 # wiringMaxAmpsPerTWC = 50 * 0.8 = 40 and wiringMaxAmpsAllTWCs = 40 + 40 = 80.
-wiringMaxAmpsPerTWC = 40
+wiringMaxAmpsPerTWC = 20
 
 # https://teslamotorsclub.com/tmc/threads/model-s-gen2-charger-efficiency-testing.78740/#post-1844789
 # says you're using 10.85% more power (91.75/82.77=1.1085) charging at 5A vs 40A,
@@ -192,7 +193,7 @@ wiringMaxAmpsPerTWC = 40
 # can't reach that rate, so charging as fast as your wiring supports is best
 # from that standpoint.  It's not clear how much damage charging at slower
 # rates really does.
-minAmpsPerTWC = 12
+minAmpsPerTWC = 6
 
 # When you have more than one vehicle associated with the Tesla car API and
 # onlyChargeMultiCarsAtHome = True, cars will only be controlled by the API when
@@ -1280,7 +1281,7 @@ def check_green_energy():
     # values or authentication. The -s option prevents curl from
     # displaying download stats. -m 60 prevents the whole
     # operation from taking over 60 seconds.
-    greenEnergyData = run_process('curl -s -m 60 "http://192.168.13.58/history/export.csv?T=1&D=0&M=1&C=1"')
+    #greenEnergyData = run_process('curl -s -m 60 "http://192.168.13.58/history/export.csv?T=1&D=0&M=1&C=1"')
 
     # In case, greenEnergyData will contain something like this:
     #   MTU, Time, Power, Cost, Voltage
@@ -1291,7 +1292,7 @@ def check_green_energy():
     # below.
     m = re.search(b'^Solar,[^,]+,-?([^, ]+),', greenEnergyData, re.MULTILINE)
     if(m):
-        solarW = int(float(m.group(1)) * 1000)
+        #solarW = int(float(m.group(1)) * 1000)
 
         # Use backgroundTasksLock to prevent changing maxAmpsToDivideAmongSlaves
         # if the main thread is in the middle of examining and later using
@@ -1302,16 +1303,21 @@ def check_green_energy():
         # Car charges at 240 volts in North America so we figure
         # out how many amps * 240 = solarW and limit the car to
         # that many amps.
-        maxAmpsToDivideAmongSlaves = (solarW / 240) + \
-                                      greenEnergyAmpsOffset
+        maxAmpsToDivideAmongSlaves = 20
+        value = adc.read_adc_difference(0, 1)
+        peakVoltage = 0
+        i = 0
+
+        GAIN=1
+        for i in range (0,10):
+           value = adc.read_adc_difference(0, gain=GAIN)
+           peakVoltage = peakVoltage + math.sqrt(value**2)
+
+        if (peakVoltage/10>1000):
+                maxAmpsToDivideAmongSlaves = 6
 
         if(debugLevel >= 1):
-            print("%s: Solar generating %dW so limit car charging to:\n" \
-                 "          %.2fA + %.2fA = %.2fA.  Charge when above %.0fA (minAmpsPerTWC)." % \
-                 (time_now(), solarW, (solarW / 240),
-                 greenEnergyAmpsOffset, maxAmpsToDivideAmongSlaves,
-                 minAmpsPerTWC))
-
+            print(time_now(),' Voltageclamp: ',peakVoltage/10,' maxAmp: ',maxAmpsToDivideAmongSlaves)
         backgroundTasksLock.release()
     else:
         print(time_now() +
