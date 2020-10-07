@@ -1290,7 +1290,7 @@ def check_green_energy():
     # kW currently being generated. When 0kW is generated, the
     # negative disappears so we make it optional in the regex
     # below.
-    m = re.search(b'^Solar,[^,]+,-?([^, ]+),', greenEnergyData, re.MULTILINE)
+    m = 1
     if(m):
         #solarW = int(float(m.group(1)) * 1000)
 
@@ -1309,15 +1309,15 @@ def check_green_energy():
         i = 0
 
         GAIN=1
-        for i in range (0,10):
+        for i in range (0,50):
            value = adc.read_adc_difference(0, gain=GAIN)
            peakVoltage = peakVoltage + math.sqrt(value**2)
 
-        if (peakVoltage/10>500):
+        if (peakVoltage>10000):
                 maxAmpsToDivideAmongSlaves = 6
 
         if(debugLevel >= 1):
-            print(time_now(),' Voltageclamp: ',peakVoltage/10,' maxAmp: ',maxAmpsToDivideAmongSlaves)
+            print(time_now(),' Voltageclamp: ',peakVoltage,' maxAmp: ',maxAmpsToDivideAmongSlaves)
         backgroundTasksLock.release()
     else:
         print(time_now() +
